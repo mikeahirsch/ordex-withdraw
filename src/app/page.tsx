@@ -3,6 +3,7 @@
 import axios from 'axios'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAccount, useConnect, useDisconnect, useSignMessage, useWriteContract } from 'wagmi'
+import { uniq } from "lodash"
 import abi from "./abi.json"
 
 function App() {
@@ -17,7 +18,7 @@ function App() {
   const [generatedMessage, setGeneratedMessage] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   
-  const [totalLeft, setTotalLeft] = useState()
+  const [totalLeft, setTotalLeft] = useState<Number>()
 
   const isFetchingEthscriptions = useRef(false) // Track operation state
 
@@ -58,12 +59,16 @@ This signature expires at: ${a}`
         try {
           if (account.address) {
             const ethscriptions = await getEthscriptions(account.address)
-            const escrowed = ethscriptions.filter(ethscription => ethscription.extension.escrowState === "PENDING")
+            const escrowed = ethscriptions.filter(ethscription => ethscription.extension.escrowState !== "EMPTY")
             const escrowedIds = escrowed.map((ethscription) => ethscription.id.split(":")[1])
             
-            const doubleCheck = await axios.get(`https://api.ethscriptions.com/api/ethscriptions/filtered?transaction_hash=${JSON.stringify(escrowedIds.slice(0,100))}&current_owner=0xc33f8610941be56fb0d84e25894c0d928cc97dde&page=1`)
+            if (escrowedIds.length) {
+              const doubleCheck = await axios.get(`https://api.ethscriptions.com/api/ethscriptions/filtered?transaction_hash=${JSON.stringify(escrowedIds.slice(0,100))}&current_owner=0xc33f8610941be56fb0d84e25894c0d928cc97dde&page=1`)
+              setTotalLeft(doubleCheck.data.total_count)
+            } else {
+              setTotalLeft(0)
+            }
             
-            setTotalLeft(doubleCheck.data.total_count)
             
             setItemIds(escrowedIds)
             setIsLoading(false)
@@ -151,7 +156,7 @@ This signature expires at: ${a}`
           Aggregating your escrowed Ethscriptions...
         </div>
       )}
-      {totalLeft !== undefined && <h2>{totalLeft === 100 ? "100+" : totalLeft} remaining</h2>}
+      {totalLeft !== undefined && <h2>{totalLeft === 100 ? "100+" : `${totalLeft}`} remaining</h2>}
       {account.isConnected && !isLoading && !!totalLeft && (
         <div style={{ marginTop: '20px' }}>
           <h2>Sign Message</h2>
