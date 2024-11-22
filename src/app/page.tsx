@@ -16,6 +16,8 @@ function App() {
   const [signature, setSignature] = useState<string | null>(null)
   const [generatedMessage, setGeneratedMessage] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  
+  const [totalLeft, setTotalLeft] = useState()
 
   const isFetchingEthscriptions = useRef(false) // Track operation state
 
@@ -58,6 +60,11 @@ This signature expires at: ${a}`
             const ethscriptions = await getEthscriptions(account.address)
             const escrowed = ethscriptions.filter(ethscription => ethscription.extension.escrowState === "PENDING")
             const escrowedIds = escrowed.map((ethscription) => ethscription.id.split(":")[1])
+            
+            const doubleCheck = await axios.get(`https://api.ethscriptions.com/api/ethscriptions/filtered?transaction_hash=${JSON.stringify(escrowedIds)}&current_owner=0xc33f8610941be56fb0d84e25894c0d928cc97dde&page=1`)
+            
+            setTotalLeft(doubleCheck.data.total_count)
+            
             setItemIds(escrowedIds)
             setIsLoading(false)
           }
@@ -77,6 +84,8 @@ This signature expires at: ${a}`
       const doubleCheck = await axios.get(`https://api.ethscriptions.com/api/ethscriptions/filtered?transaction_hash=${JSON.stringify(itemIds)}&current_owner=0xc33f8610941be56fb0d84e25894c0d928cc97dde&page=1`)
       const stillEscrowedIds = doubleCheck.data.ethscriptions.map((ethscription: any) => ethscription.transaction_hash)
       console.log(stillEscrowedIds)
+      
+      setTotalLeft(doubleCheck.data.total_count)
       
       const message = nB(stillEscrowedIds)
       setGeneratedMessage(message)
@@ -148,6 +157,7 @@ This signature expires at: ${a}`
           <button onClick={handleSignMessage} style={{ marginBottom: '10px' }}>
             Create Signature
           </button>
+          {!!totalLeft && <h2>{totalLeft} remaining</h2>}
           {generatedMessage && (
             <div>
               <h3>Generated Message:</h3>
