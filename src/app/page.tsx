@@ -61,7 +61,7 @@ This signature expires at: ${a}`
             const escrowed = ethscriptions.filter(ethscription => ethscription.extension.escrowState === "PENDING")
             const escrowedIds = escrowed.map((ethscription) => ethscription.id.split(":")[1])
             
-            const doubleCheck = await axios.get(`https://api.ethscriptions.com/api/ethscriptions/filtered?transaction_hash=${JSON.stringify(escrowedIds)}&current_owner=0xc33f8610941be56fb0d84e25894c0d928cc97dde&page=1`)
+            const doubleCheck = await axios.get(`https://api.ethscriptions.com/api/ethscriptions/filtered?transaction_hash=${JSON.stringify(escrowedIds.slice(0,100))}&current_owner=0xc33f8610941be56fb0d84e25894c0d928cc97dde&page=1`)
             
             setTotalLeft(doubleCheck.data.total_count)
             
@@ -81,7 +81,7 @@ This signature expires at: ${a}`
     setSignature(null)
 
     try {
-      const doubleCheck = await axios.get(`https://api.ethscriptions.com/api/ethscriptions/filtered?transaction_hash=${JSON.stringify(itemIds)}&current_owner=0xc33f8610941be56fb0d84e25894c0d928cc97dde&page=1`)
+      const doubleCheck = await axios.get(`https://api.ethscriptions.com/api/ethscriptions/filtered?transaction_hash=${JSON.stringify(itemIds.slice(0,100))}&current_owner=0xc33f8610941be56fb0d84e25894c0d928cc97dde&page=1`)
       const stillEscrowedIds = doubleCheck.data.ethscriptions.map((ethscription: any) => ethscription.transaction_hash)
       console.log(stillEscrowedIds)
       
@@ -151,13 +151,13 @@ This signature expires at: ${a}`
           Aggregating your escrowed Ethscriptions...
         </div>
       )}
-      {account.isConnected && !isLoading && !!itemIds.length && (
+      {totalLeft !== undefined && <h2>{totalLeft === 100 ? "100+" : totalLeft} remaining</h2>}
+      {account.isConnected && !isLoading && !!totalLeft && (
         <div style={{ marginTop: '20px' }}>
           <h2>Sign Message</h2>
           <button onClick={handleSignMessage} style={{ marginBottom: '10px' }}>
             Create Signature
           </button>
-          {!!totalLeft && <h2>{totalLeft} remaining</h2>}
           {generatedMessage && (
             <div>
               <h3>Generated Message:</h3>
