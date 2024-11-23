@@ -49,6 +49,38 @@ This signature expires at: ${a}`
 
     return [...ethscriptions, ...res.data.items]
   }, [])
+  
+  const getStillEscrowedIds = useCallback(async (escrowedIds: string[]) => {
+    if (escrowedIds.length) {
+      const chunkSize = 100; // Number of IDs per request
+      const chunks = [];
+
+      // Split the escrowedIds into chunks of size 100
+      for (let i = 0; i < escrowedIds.length; i += chunkSize) {
+        chunks.push(escrowedIds.slice(i, i + chunkSize));
+      }
+
+      let stillEscrowedIds: string[] = [];
+
+      // Make requests for each chunk and accumulate totals
+      for (const chunk of chunks) {
+        const response = await axios.get(`https://api.ethscriptions.com/api/ethscriptions/filtered`, {
+          params: {
+            transaction_hash: JSON.stringify(chunk),
+            current_owner: "0xc33f8610941be56fb0d84e25894c0d928cc97dde",
+            page: 1
+          }
+        });
+        
+        stillEscrowedIds = [...stillEscrowedIds, ...response.data.ethscriptions.map((ethscription: any) => ethscription.transaction_hash)]
+      }
+
+      setTotalLeft(stillEscrowedIds.length);
+      
+      return stillEscrowedIds;
+    }
+    return []
+  }, [])
 
   useEffect(() => {
     if (account.address && !isFetchingEthscriptions.current) {
@@ -58,39 +90,33 @@ This signature expires at: ${a}`
       (async () => {
         try {
           if (account.address) {
-            const ethscriptions = await getEthscriptions(account.address)
-            const escrowed = ethscriptions.filter(ethscription => ethscription.extension.escrowState !== "EMPTY")
-            const escrowedIds = escrowed.map((ethscription) => ethscription.id.split(":")[1])
-            
+            const ethscriptions = await getEthscriptions(account.address);
+            const escrowed = ethscriptions.filter(ethscription => ethscription.extension.escrowState !== "EMPTY");
+            const escrowedIds = escrowed.map(ethscription => ethscription.id.split(":")[1]);
+      
             if (escrowedIds.length) {
-              const doubleCheck = await axios.get(`https://api.ethscriptions.com/api/ethscriptions/filtered?transaction_hash=${JSON.stringify(escrowedIds.slice(0,100))}&current_owner=0xc33f8610941be56fb0d84e25894c0d928cc97dde&page=1`)
-              setTotalLeft(doubleCheck.data.total_count)
+              await getStillEscrowedIds(escrowedIds)
             } else {
-              setTotalLeft(0)
+              setTotalLeft(0);
             }
-            
-            
-            setItemIds(escrowedIds)
-            setIsLoading(false)
+      
+            setItemIds(escrowedIds);
+            setIsLoading(false);
           }
         } catch (err) {
-          console.error("Error fetching ethscriptions:", err)
+          console.error("Error fetching ethscriptions:", err);
         } finally {
-          isFetchingEthscriptions.current = false // Reset flag
+          isFetchingEthscriptions.current = false; // Reset flag
         }
-      })()
+      })();      
     }
-  }, [account.address, getEthscriptions])
+  }, [account.address, getEthscriptions, getStillEscrowedIds])
 
   const handleSignMessage = async () => {
     setSignature(null)
 
     try {
-      const doubleCheck = await axios.get(`https://api.ethscriptions.com/api/ethscriptions/filtered?transaction_hash=${JSON.stringify(itemIds.slice(0,100))}&current_owner=0xc33f8610941be56fb0d84e25894c0d928cc97dde&page=1`)
-      const stillEscrowedIds = doubleCheck.data.ethscriptions.map((ethscription: any) => ethscription.transaction_hash)
-      console.log(stillEscrowedIds)
-      
-      setTotalLeft(doubleCheck.data.total_count)
+      const stillEscrowedIds = await getStillEscrowedIds(itemIds)
       
       const message = nB(stillEscrowedIds)
       setGeneratedMessage(message)
@@ -156,7 +182,7 @@ This signature expires at: ${a}`
           Aggregating your escrowed Ethscriptions...
         </div>
       )}
-      {totalLeft !== undefined && <h2>{totalLeft === 100 ? "100+" : `${totalLeft}`} remaining</h2>}
+      {totalLeft !== undefined && <h2>{`${totalLeft}`} remaining</h2>}
       {account.isConnected && !isLoading && !!totalLeft && (
         <div style={{ marginTop: '20px' }}>
           <h2>Sign Message</h2>
